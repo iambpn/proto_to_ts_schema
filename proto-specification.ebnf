@@ -1,0 +1,175 @@
+(*
+operators:
+ - | alternating
+ - () grouping
+ - [] option (zero or one time)
+ - {} repetition
+*)
+
+(* Basic Element *)
+letter = "A" ... "Z" | "a" ... "z"
+decimalDigit = "0" ... "9"
+octalDigit   = "0" ... "7"
+hexDigit     = "0" ... "9" | "A" ... "F" | "a" ... "f"
+
+(* Identifiers *)
+ident = letter { letter | decimalDigit | "_" }
+fullIdent = ident { "." ident }
+messageName = ident
+enumName = ident
+fieldName = ident
+oneofName = ident
+mapName = ident
+serviceName = ident
+rpcName = ident
+messageType = [ "." ] { ident "." } messageName
+enumType = [ "." ] { ident "." } enumName
+
+(* Integer Literals  *)
+decimalLit = ( "1" … "9" ) { decimalDigit }
+octalLit   = "0" { octalDigit }
+hexLit     = "0" ( "x" | "X" ) hexDigit { hexDigit }
+intLit     = decimalLit | octalLit | hexLit
+
+(* Floating-point Literals  *)
+decimals  = decimalDigit { decimalDigit }
+exponent  = ( "e" | "E" ) [ "+" | "-" ] decimals
+floatLit = ( decimals "." [ decimals ] [ exponent ] | decimals exponent | "."decimals [ exponent ] ) | "inf" | "nan"
+
+(* Boolean  *)
+boolLit = "true" | "false"
+
+(* String Literals  *)
+charEscape = '\\' ( "a" | "b" | "f" | "n" | "r" | "t" | "v" | '\\' | "'" | '"' )
+hexEscape = '\\' ( "x" | "X" ) hexDigit hexDigit
+octEscape = '\\' octalDigit octalDigit octalDigit
+charValue = hexEscape | octEscape | charEscape | /[^\0\n\\]/
+strLit = ( "'" { charValue } "'" ) |  ( '"' { charValue } '"' )
+
+(* EmptyStatement Datatype *)
+emptyStatement = ";"
+
+(* Constant *)
+constant = fullIdent | ( [ "-" | "+" ] intLit ) | ( [ "-" | "+" ] floatLit ) | strLit | boolLit
+
+(* Syntax Statement*)
+syntax = "syntax" "=" ("'" "proto3" "'" | '"' "proto3" '"') ";"
+(* Example: stntax = "proto3" *)
+
+(* Import Statement *)
+import = "import" [ "weak" | "public" ] strLit ";"
+(* Example: import public "other.proto"; *)
+
+(* Package *)
+package = "package" fullIdent ";"
+(* Example: package foo.bar; *)
+
+(* Option *)
+optionName = ( ident | "(" fullIdent ")" ) { "." ident }
+option = "option" optionName  "=" constant ";"
+
+(* Fields *)
+type = "double" | "float" | "int32" | "int64" | "uint32" | "uint64"
+      | "sint32" | "sint64" | "fixed32" | "fixed64" | "sfixed32" | "sfixed64"
+      | "bool" | "string" | "bytes" | messageType | enumType
+fieldNumber = intLit;
+
+(* Normal Field *)
+fieldOption = optionName "=" constant
+fieldOptions = fieldOption { ","  fieldOption }
+field = [ "repeated" ] type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";"
+
+(* Oneof and Oneof Field *)
+oneof = "oneof" oneofName "{" { option | oneofField | emptyStatement } "}"
+oneofField = type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";"
+
+(* Example:
+oneof foo {
+    string name = 4;
+    SubMessage sub_message = 9;
+}
+ *)
+
+
+(* Map Field *)
+keyType = "int32" | "int64" | "uint32" | "uint64" | "sint32" | "sint64" |"fixed32" | "fixed64" | "sfixed32" | "sfixed64" | "bool" | "string"
+mapField = "map" "<" keyType "," type ">" mapName "=" fieldNumber [ "[" fieldOptions "]" ] ";"
+
+(* Example: map<string, Project> projects = 3;*)
+
+(* Reserved *)
+range =  intLit [ "to" ( intLit | "max" ) ]
+ranges = range { "," range }
+strFieldName = "'" fieldName "'" | '"' fieldName '"'
+strFieldNames = strFieldName { "," strFieldName }
+reserved = "reserved" ( ranges | strFieldNames ) ";"
+
+(* example: 
+    reserved 2, 15, 9 to 11;
+    reserved "foo", "bar";
+*)
+
+(* Enum Definition *)
+enumValueOption = optionName "=" constant
+enumField = ident "=" [ "-" ] intLit [ "[" enumValueOption { ","  enumValueOption } "]" ]";"
+enumBody = "{" { option | enumField | emptyStatement | reserved } "}"
+enum = "enum" enumName enumBody
+
+(* Example: 
+  enum EnumAllowingAlias {
+  option allow_alias = true;
+  EAA_UNSPECIFIED = 0;
+  EAA_STARTED = 1;
+  EAA_RUNNING = 2 [(custom_option) = "hello world"];
+}
+ *)
+
+(* Message Definition *)
+messageBody = "{" { field | enum | message | option | oneof | mapField |reserved | emptyStatement } "}"
+message = "message" messageName messageBody
+
+(* Example: 
+message Outer {
+  option (my_option).a = true;
+  message Inner {   // Level 2
+    int64 ival = 1;
+  }
+  map<int32, string> my_map = 2;
+}
+ *)
+
+(* Service Definition *)
+rpc = "rpc" rpcName "(" [ "stream" ] messageType ")" "returns" "(" [ "stream" ]messageType ")" (( "{" {option | emptyStatement } "}" ) | ";")
+service = "service" serviceName "{" { option | rpc | emptyStatement } "}"
+
+(* Example:
+service SearchService {
+  rpc Search (SearchRequest) returns (SearchResponse);
+}
+ *)
+
+(* Proto File *)
+proto = syntax { import | package | option | topLevelDef | emptyStatement }
+topLevelDef = message | enum | service
+
+(* Example: 
+syntax = "proto3";
+import public "other.proto";
+option java_package = "com.example.foo";
+enum EnumAllowingAlias {
+  option allow_alias = true;
+  EAA_UNSPECIFIED = 0;
+  EAA_STARTED = 1;
+  EAA_RUNNING = 1;
+  EAA_FINISHED = 2 [(custom_option) = "hello world"];
+}
+message Outer {
+  option (my_option).a = true;
+  message Inner {   // Level 2
+    int64 ival = 1;
+  }
+  repeated Inner inner_message = 2;
+  EnumAllowingAlias enum_field = 3;
+  map<int32, string> my_map = 4;
+}
+ *)
