@@ -1,0 +1,6 @@
+syntax = "proto3";
+package commons;
+
+message common {
+  string name = 1;
+}
