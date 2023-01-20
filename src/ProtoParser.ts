@@ -1,3 +1,5 @@
+import * as fs from "fs/promises";
+
 const MessageHeaderTypes = {
   Message: "message",
   Enum: "enum",
@@ -70,15 +72,15 @@ type Syntax = string;
 
 type Package = string;
 
-type Line = {
-  import?: Import;
-  option?: Option;
-  message?: MessageHeader;
+type ProtoJson = {
+  imports?: Import[];
+  messages?: MessageHeader[];
   syntax?: Syntax;
   package?: Package;
+  services?: Service[];
 };
 
-export function ParseProtoFile(file: string): string[] {
+function ParseProtoFile(file: string): string[] {
   if (!file) {
     return [];
   }
@@ -113,7 +115,7 @@ const services: Service[] = [];
 let nestedLevel = 0;
 let lastMessage: LastMessageType | undefined;
 
-export function ParseProtoLine(line: string) {
+function ParseProtoLine(line: string) {
   const tokens = line
     .split(" ")
     .filter(Boolean)
@@ -299,6 +301,7 @@ function insertImport(package_name: string, obj: string) {
     import_data.objs = Array.from(set_data);
   }
 }
+
 function getPackageNameAndObjName(messageType: string): [string | undefined, string] {
   const messageTypeToken = messageType.split(".");
 
@@ -315,10 +318,45 @@ function cleanText(text: string) {
   return text.replace(/"|'/g, "").trim();
 }
 
-export function printGlobalVars() {
+/**
+ * For debugging
+ */
+function _printGlobalVars() {
   console.log(imports);
   console.log(syntax);
   console.log(package_name);
   console.dir(messages, { depth: 10 });
   console.dir(services, { depth: 10 });
+}
+
+export async function parseProto(protoPath: string): Promise<ProtoJson> {
+  const proto = await fs.readFile(protoPath, { encoding: "utf-8" });
+  const lines = ParseProtoFile(proto);
+  for (const line of lines) {
+    ParseProtoLine(line);
+  }
+
+  return {
+    syntax,
+    package: package_name,
+    imports: Array.from(imports.values()),
+    messages: messages,
+    services: services,
+  };
+}
+
+export async function parseProtoToJson(protoPath: string): Promise<string> {
+  const proto = await fs.readFile(protoPath, { encoding: "utf-8" });
+  const lines = ParseProtoFile(proto);
+  for (const line of lines) {
+    ParseProtoLine(line);
+  }
+
+  return JSON.stringify({
+    syntax,
+    package: package_name,
+    imports: Array.from(imports.values()),
+    messages: messages,
+    services: services,
+  });
 }
