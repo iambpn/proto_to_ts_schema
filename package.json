@@ -2,7 +2,7 @@
   "name": "proto_to_zod",
   "version": "1.0.0",
   "description": "(Beta) proto to zod schema compiler.",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc",
