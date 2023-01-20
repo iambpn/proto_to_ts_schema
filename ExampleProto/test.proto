@@ -11,8 +11,11 @@ message Person {
   int32 id = 2;  // Unique ID number for this person.
   string email = 3;
   string password = 8;
+  option message_option = "option_Message";
+
 
   enum PhoneType {
+    option enum_option = "option_enum";
     MOBILE = 0;
     HOME = 1;
     WORK = 2;
@@ -41,5 +44,6 @@ message AddressBook {
 
 service tutorialService {
   rpc getData(AddressBook) returns (commons.common) {};
+  option service_option = "service_option";
   rpc setdata(AddressBook) returns (commons.common);
 }

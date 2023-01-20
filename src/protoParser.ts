@@ -13,6 +13,7 @@ type Import = {
 type Option = {
   name: string;
   value: string;
+  isOption: true;
 };
 
 type Indent = {
@@ -22,7 +23,7 @@ type Indent = {
 
 type MessageHeader = {
   name: string;
-  body: (MessageBody | EnumBody | MessageHeader)[];
+  body: AllMessage[];
   type: keyof typeof MessageHeaderTypes;
   indent?: Indent;
 };
@@ -44,7 +45,7 @@ type EnumBody = {
   indent?: Indent;
 };
 
-type AllMessage = MessageHeader | MessageBody | EnumBody;
+type AllMessage = MessageHeader | MessageBody | EnumBody | Option;
 
 type RPCFunction = {
   name: string;
@@ -60,8 +61,10 @@ type RPCFunction = {
 
 type Service = {
   name: string;
-  rpcFunctions: RPCFunction[];
+  rpcFunctions: (RPCFunction | Option)[];
 };
+
+type LastMessageType = keyof typeof MessageHeaderTypes | "Service";
 
 type Syntax = string;
 
@@ -105,11 +108,10 @@ export function ParseProtoFile(file: string): string[] {
 const imports: Map<string, Import> = new Map();
 let syntax: Syntax;
 let package_name: Package;
-const options: Option[] = [];
 const messages: MessageHeader[] = [];
 const services: Service[] = [];
 let nestedLevel = 0;
-let lastMessageType: keyof typeof MessageHeaderTypes | undefined;
+let lastMessage: LastMessageType | undefined;
 
 export function ParseProtoLine(line: string) {
   const tokens = line
@@ -163,10 +165,16 @@ export function ParseProtoLine(line: string) {
       return;
     case "option":
       {
-        options.push({
+        const optionMessage = {
           name: tokens[1],
           value: tokens[tokens.length - 1],
-        });
+          isOption: true,
+        } as Option;
+        if (lastMessage !== "Service") {
+          insertMessage(nestedLevel, optionMessage, messages);
+        } else {
+          insertRpcFunction(optionMessage);
+        }
       }
       return;
     case "message":
@@ -178,6 +186,7 @@ export function ParseProtoLine(line: string) {
         };
         insertMessage(nestedLevel, message, messages);
         nestedLevel += 1;
+        lastMessage = "Message";
       }
       return;
     case "enum":
@@ -189,6 +198,7 @@ export function ParseProtoLine(line: string) {
         };
         insertMessage(nestedLevel, message, messages);
         nestedLevel += 1;
+        lastMessage = "Enum";
       }
       return;
     case "service":
@@ -197,6 +207,7 @@ export function ParseProtoLine(line: string) {
           name: tokens[1],
           rpcFunctions: [],
         });
+        lastMessage = "Service";
       }
       return;
     case "rpc":
@@ -218,11 +229,12 @@ export function ParseProtoLine(line: string) {
           },
         };
 
-        services[services.length - 1].rpcFunctions.push(rpcFn);
+        insertRpcFunction(rpcFn);
       }
       return;
     case "}":
       nestedLevel -= 1;
+      lastMessage = undefined;
       return;
     case "repeated":
       isRepeated = true;
@@ -275,6 +287,10 @@ function insertMessage(nestedCount: number, message: AllMessage, insertToNode: A
   insertToNode.push(message);
 }
 
+function insertRpcFunction(rpcFn: RPCFunction | Option) {
+  services[services.length - 1].rpcFunctions.push(rpcFn);
+}
+
 function insertImport(package_name: string, obj: string) {
   const import_data = imports.get(package_name);
   if (import_data) {
@@ -303,7 +319,6 @@ export function printGlobalVars() {
   console.log(imports);
   console.log(syntax);
   console.log(package_name);
-  console.log(options);
   console.dir(messages, { depth: 10 });
   console.dir(services, { depth: 10 });
 }
