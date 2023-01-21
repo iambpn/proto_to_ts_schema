@@ -72,9 +72,9 @@ type Syntax = string;
 
 type Package = string;
 
-type ProtoJson = {
+export type ProtoJson = {
   imports?: Import[];
-  messages?: MessageHeader[];
+  messages?: (MessageHeader | Option)[];
   syntax?: Syntax;
   package?: Package;
   services?: Service[];
@@ -110,10 +110,10 @@ function ParseProtoFile(file: string): string[] {
 const imports: Map<string, Import> = new Map();
 let syntax: Syntax;
 let package_name: Package;
-const messages: MessageHeader[] = [];
+const messages: (MessageHeader | Option)[] = [];
 const services: Service[] = [];
 let nestedLevel = 0;
-let lastMessage: LastMessageType | undefined;
+let lastMessageType: LastMessageType | undefined;
 
 function ParseProtoLine(line: string) {
   const tokens = line
@@ -172,7 +172,7 @@ function ParseProtoLine(line: string) {
           value: tokens[tokens.length - 1],
           isOption: true,
         } as Option;
-        if (lastMessage !== "Service") {
+        if (lastMessageType !== "Service") {
           insertMessage(nestedLevel, optionMessage, messages);
         } else {
           insertRpcFunction(optionMessage);
@@ -188,7 +188,7 @@ function ParseProtoLine(line: string) {
         };
         insertMessage(nestedLevel, message, messages);
         nestedLevel += 1;
-        lastMessage = "Message";
+        lastMessageType = "Message";
       }
       return;
     case "enum":
@@ -200,7 +200,7 @@ function ParseProtoLine(line: string) {
         };
         insertMessage(nestedLevel, message, messages);
         nestedLevel += 1;
-        lastMessage = "Enum";
+        lastMessageType = "Enum";
       }
       return;
     case "service":
@@ -209,7 +209,7 @@ function ParseProtoLine(line: string) {
           name: tokens[1],
           rpcFunctions: [],
         });
-        lastMessage = "Service";
+        lastMessageType = "Service";
       }
       return;
     case "rpc":
@@ -236,7 +236,7 @@ function ParseProtoLine(line: string) {
       return;
     case "}":
       nestedLevel -= 1;
-      lastMessage = undefined;
+      lastMessageType = undefined;
       return;
     case "repeated":
       isRepeated = true;
@@ -246,7 +246,14 @@ function ParseProtoLine(line: string) {
       break;
   }
 
-  const parentMessage = getLastMessageHeader(messages[messages.length - 1], messages[messages.length - 1]);
+  const lastMessage = messages[messages.length - 1];
+
+  //skip if Message header is not the last element of Messages
+  if (!("type" in lastMessage)) {
+    return;
+  }
+
+  const parentMessage = getLastMessageHeader(messages[messages.length - 1], lastMessage);
 
   let message: MessageBody | EnumBody;
   if (parentMessage.type === "Message") {
@@ -262,6 +269,7 @@ function ParseProtoLine(line: string) {
       repeated: isRepeated,
     } as MessageBody;
   } else {
+    // Option will be caught in switch case so this if enum for sure.
     message = {
       name: tokens[0],
       value: +tokens[2],
