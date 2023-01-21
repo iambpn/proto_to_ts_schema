@@ -1,36 +1,36 @@
 import * as fs from "fs/promises";
 
-const MessageHeaderTypes = {
+export const MessageHeaderTypes = {
   Message: "message",
   Enum: "enum",
 } as const;
 
-type Import = {
+export type Import = {
   packageName: string; // Name of file to import from
   pathToPackage: string; // Path to import file (fileName not included)
   fullPath: string; // Full proto import
   objs: string[]; // Objects to import from PackageName file
 };
 
-type Option = {
+export type Option = {
   name: string;
   value: string;
   isOption: true;
 };
 
-type Indent = {
+export type Indent = {
   indentCount: number;
   indentChar: string;
 };
 
-type MessageHeader = {
+export type MessageHeader = {
   name: string;
   body: AllMessage[];
   type: keyof typeof MessageHeaderTypes;
   indent?: Indent;
 };
 
-type MessageBody = {
+export type MessageBody = {
   name: string;
   datatype: {
     packageName?: string; // File Name to import from. (if empty then import form current file)
@@ -41,15 +41,15 @@ type MessageBody = {
   indent?: Indent;
 };
 
-type EnumBody = {
+export type EnumBody = {
   name: string;
   value: number;
   indent?: Indent;
 };
 
-type AllMessage = MessageHeader | MessageBody | EnumBody | Option;
+export type AllMessage = MessageHeader | MessageBody | EnumBody | Option;
 
-type RPCFunction = {
+export type RPCFunction = {
   name: string;
   arg: {
     packageName?: string;
@@ -61,16 +61,16 @@ type RPCFunction = {
   };
 };
 
-type Service = {
+export type Service = {
   name: string;
   rpcFunctions: (RPCFunction | Option)[];
 };
 
-type LastMessageType = keyof typeof MessageHeaderTypes | "Service";
+export type LastMessageType = keyof typeof MessageHeaderTypes | "Service";
 
-type Syntax = string;
+export type Syntax = string;
 
-type Package = string;
+export type Package = string;
 
 export type ProtoJson = {
   imports?: Import[];
@@ -253,7 +253,7 @@ function ParseProtoLine(line: string) {
     return;
   }
 
-  const parentMessage = getLastMessageHeader(messages[messages.length - 1], lastMessage);
+  const parentMessage = getLastMessageHeader(nestedLevel, lastMessage);
 
   let message: MessageBody | EnumBody;
   if (parentMessage.type === "Message") {
@@ -279,15 +279,20 @@ function ParseProtoLine(line: string) {
   parentMessage.body.push(message);
 }
 
-function getLastMessageHeader(lastMessage: AllMessage, parentMessage: MessageHeader): MessageHeader {
-  if (!lastMessage || !("body" in lastMessage)) {
-    return parentMessage;
+function getLastMessageHeader(nestedCount: number, lastMessage: MessageHeader): MessageHeader {
+  const lastElement = lastMessage.body[lastMessage.body.length - 1] as MessageHeader;
+  if (nestedCount > 1 && lastElement) {
+    return getLastMessageHeader(nestedCount - 1, lastElement);
+  } else {
+    return lastMessage;
   }
-
-  return getLastMessageHeader(lastMessage.body[lastMessage.body.length - 1], lastMessage);
 }
 
 function insertMessage(nestedCount: number, message: AllMessage, insertToNode: AllMessage[]) {
+  /**
+   * Since we are tacking nested count the possibility of not having insertToNode of type AllMessage[] is 0
+   */
+
   if (nestedCount > 0) {
     const lastElement = insertToNode[insertToNode.length - 1] as MessageHeader;
     insertMessage(nestedCount - 1, message, lastElement.body);
