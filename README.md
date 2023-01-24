@@ -1,2 +1,2 @@
-# proto_to_zod
-(Beta) proto to zod schema compiler.
+# proto_to_ts
+(Beta) proto to ts schema compiler.
