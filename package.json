@@ -1,7 +1,7 @@
 {
-  "name": "proto_to_zod",
+  "name": "proto_to_ts",
   "version": "1.0.0",
-  "description": "(Beta) proto to zod schema compiler.",
+  "description": "(Beta) proto to ts schema compiler.",
   "main": "dist/index.js",
   "scripts": {
     "start": "ts-node src/index.ts",
@@ -10,15 +10,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iambpn/proto_to_zod.git"
+    "url": "git+https://github.com/iambpn/proto_to_ts.git"
   },
   "keywords": [],
   "author": "Bipin Maharjan",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/iambpn/proto_to_zod/issues"
+    "url": "https://github.com/iambpn/proto_to_ts/issues"
   },
-  "homepage": "https://github.com/iambpn/proto_to_zod#readme",
+  "homepage": "https://github.com/iambpn/proto_to_ts#readme",
   "devDependencies": {
     "@types/node": "^18.11.18",
     "ts-node": "^10.9.1",
