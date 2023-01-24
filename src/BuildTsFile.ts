@@ -1,7 +1,11 @@
-import { ProtoJson, AllMessage, MessageHeader, Option, MessageBody } from "./ProtoParser";
+import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody } from "./ProtoParser";
 
-let tsFile = `import { z } from "zod";\r\n`;
+let tsFile = "";
+let imports: Import[] = [];
+const LocalMessages: Record<string, string> = {};
+
 export function buildTsFile(proto: ProtoJson) {
+  imports = proto.imports ?? [];
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
       tsFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
@@ -15,54 +19,74 @@ export function buildTsFile(proto: ProtoJson) {
     }
   }
 
+
   return tsFile;
 }
 
-function buildProtoMessages(message: MessageHeader | Option): string {
+function buildProtoMessages(message: MessageHeader | Option, nestedTo?: string): string {
   let file = "";
-  let nestedFile = "";
+  let nestedContent = "";
 
   if ("isOption" in message) {
     // Skip Options: Do Nothing
     return "";
   }
 
+  message.name = `${nestedTo ? `${nestedTo}__` : ""}${message.name}`;
   if (message.type === "Message") {
-    file += `export const ${message.name} = z.object({\r\n`;
+    file += `export interface ${message.name} {\r\n`;
     for (let body of message.body) {
+      // if MessageHeader or Option
       if ("type" in body || "isOption" in body) {
-        nestedFile += buildProtoMessages(body);
+        nestedContent += buildProtoMessages(body, message.name);
       } else {
         // Only Message body will be here
-        body = body as MessageBody;
-
-        const [typeName, isTsType] = convertProtoTypeToTs(body.datatype.type);
-
-        if (isTsType) {
-          file += `${body.name}: z.${typeName}(),\r\n`;
-        } else {
-          file += `${body.name}: ${typeName},\r\n`;
-        }
-      }
-    }
-    file += `});\r\n`;
-  } else {
-    // Else: Enum
-    file += `enum _${message.name}_ENUM {\r\n`;
-    for (const body of message.body) {
-      if ("isOption" in body) {
-        nestedFile += buildProtoMessages(body);
-      } else {
-        // Only Enum body will be here
-        file += `${body.name},\r\n`;
+        file += getMessageBody(message, body as MessageBody, nestedTo);
       }
     }
     file += `}\r\n`;
-    file += `export const ${message.name} = z.nativeEnum(_${message.name}_ENUM);\r\n`;
+    LocalMessages[message.name] = message.name;
+  } else {
+    // Else: Enum
+    file += `enum ${message.name} {\r\n`;
+    for (const body of message.body) {
+      if ("isOption" in body) {
+        nestedContent += buildProtoMessages(body, message.name);
+      } else {
+        // Only Enum body will be here
+        file += getEnumBody(body as EnumBody);
+      }
+    }
+    file += `}\r\n`;
+    LocalMessages[message.name] = message.name;
   }
-  file += `type ${message.name}_Type = z.infer<typeof ${message.name}>;\r\n\r\n`;
+  return nestedContent + file;
+}
 
-  return nestedFile + file;
+function getMessageBody(message: MessageHeader, body: MessageBody, nestedTo?: string): string {
+  if (!body.datatype.packageName) {
+    const [typeName, isTsType] = convertProtoTypeToTs(body.datatype.type);
+
+    if (isTsType) {
+      return `  ${body.name}: ${typeName};\r\n`;
+    } else {
+      const localMessage = LocalMessages[typeName];
+      const newTypeName = localMessage ?? (nestedTo ? `${nestedTo}__${typeName}` : `${message.name}__${typeName}`);
+      return `  ${body.name}: ${newTypeName};\r\n`;
+    }
+  } else {
+    const packageName = body.datatype.packageName;
+    const isFound = imports?.find((import_data) => import_data.packageName === packageName);
+    if (isFound) {
+      return `  ${body.name}: ${body.datatype.type},\r\n`;
+    } else {
+      return `  ${body.name}: ${message.name}__${body.datatype.packageName.replace(".", "__")}__${body.datatype.type},\r\n`;
+    }
+  }
+}
+
+function getEnumBody(body: EnumBody) {
+  return `  ${body.name},\r\n`;
 }
 
 const Types: Record<string, string> = {
@@ -83,7 +107,7 @@ const Types: Record<string, string> = {
   bytes: "string",
 };
 
-function convertProtoTypeToTs(p: string): (string | boolean)[] {
+function convertProtoTypeToTs(p: string): [string, boolean] {
   if (Types[p]) {
     return [Types[p], true];
   }

@@ -36,10 +36,13 @@ message AddressBook {
   message AddressBook1 {
     message AddressBook2 {
       message AddressBook3 {
+        message PhoneNumber {
+        }
       }
     }
   }
   repeated Person people = 1;
+  AddressBook1.AddressBook2.AddressBook3 address = 2;
 }
 
 service tutorialService {
