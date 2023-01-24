@@ -1,21 +1,21 @@
 import { ProtoJson, AllMessage, MessageHeader, Option, MessageBody } from "./ProtoParser";
 
-let zodFile = `import { z } from "zod";\r\n`;
-export function buildZod(proto: ProtoJson) {
+let tsFile = `import { z } from "zod";\r\n`;
+export function buildTsFile(proto: ProtoJson) {
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
-      zodFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
+      tsFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
     }
   }
-  zodFile += "\r\n";
+  tsFile += "\r\n";
 
   if (proto.messages && proto.messages.length) {
     for (const message of proto.messages) {
-      zodFile += buildProtoMessages(message);
+      tsFile += buildProtoMessages(message);
     }
   }
 
-  return zodFile;
+  return tsFile;
 }
 
 function buildProtoMessages(message: MessageHeader | Option): string {
