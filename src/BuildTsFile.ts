@@ -115,5 +115,4 @@ function convertProtoTypeToTs(p: string): [string, boolean] {
   return [p, false];
 }
 
-//Todo: changeNameOfNestedFields
 //Todo: Service implementation
