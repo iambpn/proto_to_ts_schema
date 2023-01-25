@@ -1,5 +1,3 @@
-import * as fs from "fs/promises";
-
 export const MessageHeaderTypes = {
   Message: "message",
   Enum: "enum",
@@ -342,34 +340,34 @@ function _printGlobalVars() {
   console.dir(services, { depth: 10 });
 }
 
-export async function parseProto(protoPath: string): Promise<ProtoJson> {
-  const proto = await fs.readFile(protoPath, { encoding: "utf-8" });
-  const lines = ParseProtoFile(proto);
+export async function parseProto(protoFile: string): Promise<ProtoJson> {
+  const lines = ParseProtoFile(protoFile);
   for (const line of lines) {
     ParseProtoLine(line);
   }
 
-  return {
+  const returnData = {
     syntax,
     package: package_name,
     imports: Array.from(imports.values()),
     messages: messages,
     services: services,
   };
+  return returnData;
 }
 
-export async function parseProtoToJson(protoPath: string): Promise<string> {
-  const proto = await fs.readFile(protoPath, { encoding: "utf-8" });
-  const lines = ParseProtoFile(proto);
+export async function parseProtoToJson(protoFile: string): Promise<string> {
+  const lines = ParseProtoFile(protoFile);
   for (const line of lines) {
     ParseProtoLine(line);
   }
 
-  return JSON.stringify({
+  const returnData = {
     syntax,
     package: package_name,
     imports: Array.from(imports.values()),
     messages: messages,
     services: services,
-  });
+  };
+  return JSON.stringify(returnData);
 }
