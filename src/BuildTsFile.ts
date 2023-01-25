@@ -1,4 +1,4 @@
-import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody } from "./ProtoParser";
+import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParser";
 
 let tsFile = "";
 let imports: Import[] = [];
@@ -19,8 +19,58 @@ export function buildTsFile(proto: ProtoJson) {
     }
   }
 
+  if (proto.services && proto.services.length) {
+    for (const service of proto.services) {
+      tsFile += buildProtoServices(service);
+    }
+  }
 
   return tsFile;
+}
+
+function buildProtoServices(service: Service) {
+  let file = `export interface ${service.name} {\r\n`;
+  for (const rpcFunction of service.rpcFunctions) {
+    file += buildRpcFunctions(rpcFunction);
+  }
+  file += "}\r\n";
+
+  return file;
+}
+
+function buildRpcFunctions(rpcFunction: RPCFunction | Option) {
+  if ("isOption" in rpcFunction) {
+    // Skip Options: Do Nothing
+    return "";
+  }
+
+  const name = `${rpcFunction.name.substring(0, 1).toLowerCase()}${rpcFunction.name.substring(1)}`;
+  let args = "";
+  if (!rpcFunction.arg.packageName) {
+    args = `${rpcFunction.arg.type}`;
+  } else {
+    const packageName = rpcFunction.arg.packageName;
+    const isFound = imports?.find((import_data) => import_data.packageName === packageName);
+    if (isFound) {
+      args = `${rpcFunction.arg.type}`;
+    } else {
+      args = `${rpcFunction.arg.packageName.replace(".", "__")}__${rpcFunction.arg.type}`;
+    }
+  }
+
+  let returns = "";
+  if (!rpcFunction.returns.packageName) {
+    returns = `${rpcFunction.returns.packageName}`;
+  } else {
+    const packageName = rpcFunction.returns.packageName;
+    const isFound = imports?.find((import_data) => import_data.packageName === packageName);
+    if (isFound) {
+      returns = `${rpcFunction.returns.type}`;
+    } else {
+      returns = `${rpcFunction.returns.packageName.replace(".", "__")}__${rpcFunction.returns.type}`;
+    }
+  }
+  return `  ${name}(data:${args}):${returns};\r\n`;
 }
 
 function buildProtoMessages(message: MessageHeader | Option, nestedTo?: string): string {
@@ -114,5 +164,3 @@ function convertProtoTypeToTs(p: string): [string, boolean] {
 
   return [p, false];
 }
-
-//Todo: Service implementation
