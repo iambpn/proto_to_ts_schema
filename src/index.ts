@@ -11,6 +11,7 @@ export async function ConvertProtoToTs(protoPath: string, outPath: string) {
   await fs.writeFile(outPath, zodFile, { encoding: "utf-8" });
 }
 
+// For Debug:
 // ConvertProtoToTs("./Example/test.proto", "./out.ts");
 
 type Options = {
@@ -18,6 +19,7 @@ type Options = {
   proto_path?: string;
   out?: string;
   config?: string;
+  help?: boolean;
 };
 
 function getCliOptions(): Options {
@@ -44,6 +46,11 @@ function getCliOptions(): Options {
         name: "config",
         alias: "c",
         type: String,
+      },
+      {
+        name: "help",
+        alias: "h",
+        type: Boolean,
       },
     ]) as Options;
   } catch (error: any) {
@@ -75,6 +82,39 @@ async function configureArgs(options: Options): Promise<ConfiguredOption> {
   return localOptions;
 }
 
+type OptionKeys = keyof Options;
+function showHelp() {
+  const applicationName = "Proto to TS";
+
+  const optionsDescription: { [x in OptionKeys]: string } = {
+    config: "Path to the config file which must be in json format (notSupported). (default: CWD/p2t.json)",
+    help: "To show help docs.",
+    out: "Path to output folder. (default: CWD)",
+    proto_files: "List of proto files to compile to TS. (default: All proto files inside of 'proto_path' or CWD)",
+    proto_path: "Path to Proto folder, (default: CWD)",
+  };
+
+  const optionsUsage: { [x in OptionKeys]: string } = {
+    config: "--config [-c]",
+    help: "--help [-h]",
+    out: "--out <path> [-o <path>]",
+    proto_files: "--proto_files <filename.proto> <filename2.proto> [-f <files.prot>]",
+    proto_path: "-p <path> [-p <path>]",
+  };
+
+  const generateDocs = Object.keys(optionsDescription)
+    .map((key) => {
+      return `
+      ${key}: ${optionsDescription[key as OptionKeys]}
+      usage: ${optionsUsage[key as OptionKeys]}`;
+    })
+    .reduce((prev, curr) => {
+      return `${prev}\r\n${curr}`;
+    }, "");
+
+  console.log(`${applicationName}${generateDocs}`);
+}
+
 async function isFileExist(file_path: string): Promise<boolean> {
   try {
     await fs.stat(file_path);
@@ -86,6 +126,11 @@ async function isFileExist(file_path: string): Promise<boolean> {
 
 (async () => {
   const options = getCliOptions();
+
+  if (options.help) {
+    showHelp();
+  }
+
   const configuredOptions = await configureArgs(options);
 
   const parsePromise = configuredOptions.proto_files?.map(async (file) => {
@@ -106,5 +151,3 @@ async function isFileExist(file_path: string): Promise<boolean> {
     await Promise.all(parsePromise);
   }
 })();
-
-//TODO: Global variable are compounding on every call

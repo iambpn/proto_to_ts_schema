@@ -78,6 +78,18 @@ export type ProtoJson = {
   services?: Service[];
 };
 
+export type ParseProtoLineReturn = {
+  imports: Map<string, Import>;
+  messages: (MessageHeader | Option)[];
+  services: Service[];
+  syntax: string;
+  package_name: string;
+  nestedLevel: number;
+  lastMessageType: LastMessageType | undefined;
+};
+
+// ---------- Type Deceleration End ----------- //
+
 function ParseProtoFile(file: string): string[] {
   if (!file) {
     return [];
@@ -105,15 +117,25 @@ function ParseProtoFile(file: string): string[] {
   return lines;
 }
 
-const imports: Map<string, Import> = new Map();
-let syntax: Syntax;
-let package_name: Package;
-const messages: (MessageHeader | Option)[] = [];
-const services: Service[] = [];
-let nestedLevel = 0;
-let lastMessageType: LastMessageType | undefined;
+function deepCopyObject<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
 
-function ParseProtoLine(line: string) {
+function ParseProtoLine(
+  line: string,
+  imports_arg: Map<string, Import>,
+  messages_arg: (MessageHeader | Option)[],
+  services_arg: Service[],
+  nestedLevel: number,
+  lastMessageType?: LastMessageType
+): ParseProtoLineReturn {
+  const localImports = new Map(deepCopyObject([...imports_arg]));
+  const messages = deepCopyObject(messages_arg);
+  const services = deepCopyObject(services_arg);
+
+  let syntax = "";
+  let package_name = "";
+
   const tokens = line
     .split(" ")
     .filter(Boolean)
@@ -128,41 +150,73 @@ function ParseProtoLine(line: string) {
         const commentToken = line.substring(2).split(/:| /).filter(Boolean);
         if (commentToken[0] === "package") {
           const packageName = commentToken[1];
-          let lastImport = Array.from(imports.keys()).pop();
-          const import_data = imports.get(lastImport ?? "");
+          let lastImport = Array.from(localImports.keys()).pop();
+          const import_data = localImports.get(lastImport ?? "");
 
           if (import_data) {
-            imports.delete(lastImport ?? "");
+            localImports.delete(lastImport ?? "");
             import_data.packageName = packageName;
-            imports.set(packageName, import_data);
+            localImports.set(packageName, import_data);
           }
         }
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "syntax":
       {
         syntax = tokens[tokens.length - 1];
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "package":
       {
         package_name = tokens[tokens.length - 1];
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "import":
       {
         const fullPath = tokens[tokens.length - 1];
         const pathTokens = fullPath.split("/");
         const packageName = pathTokens[pathTokens.length - 1].split(".")[0];
 
-        imports.set(packageName, {
+        localImports.set(packageName, {
           objs: [],
           packageName,
           pathToPackage: pathTokens.length > 1 ? pathTokens.slice(0, -1).join("/") : ".",
           fullPath,
         });
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "option":
       {
         const optionMessage = {
@@ -171,12 +225,20 @@ function ParseProtoLine(line: string) {
           isOption: true,
         } as Option;
         if (lastMessageType !== "Service") {
-          insertMessage(nestedLevel, optionMessage, messages);
+          getMessageBodyToInsert(nestedLevel, messages).push(optionMessage);
         } else {
-          insertRpcFunction(optionMessage);
+          services[services.length - 1].rpcFunctions.push(optionMessage);
         }
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "message":
       {
         const message: MessageHeader = {
@@ -184,11 +246,19 @@ function ParseProtoLine(line: string) {
           type: "Message",
           body: [],
         };
-        insertMessage(nestedLevel, message, messages);
+        getMessageBodyToInsert(nestedLevel, messages).push(message);
         nestedLevel += 1;
         lastMessageType = "Message";
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "enum":
       {
         const message: MessageHeader = {
@@ -196,11 +266,19 @@ function ParseProtoLine(line: string) {
           type: "Enum",
           body: [],
         };
-        insertMessage(nestedLevel, message, messages);
+        getMessageBodyToInsert(nestedLevel, messages).push(message);
         nestedLevel += 1;
         lastMessageType = "Enum";
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "service":
       {
         services.push({
@@ -209,13 +287,32 @@ function ParseProtoLine(line: string) {
         });
         lastMessageType = "Service";
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "rpc":
       {
         const rpcTokens = line.split(/ |\(|\)/gm).filter(Boolean);
 
         const [argPackageName, argObjName] = getPackageNameAndObjName(rpcTokens[2]);
+        const argImport = localImports.get(argPackageName ?? "");
+        if (argImport && argPackageName) {
+          const importData = updateImportObjsProperty(argImport, argObjName);
+          localImports.set(argPackageName, importData);
+        }
+
         const [returnPackageName, returnObjName] = getPackageNameAndObjName(rpcTokens[4]);
+        const returnImport = localImports.get(returnPackageName ?? "");
+        if (returnImport && returnPackageName) {
+          const importData = updateImportObjsProperty(returnImport, returnObjName);
+          localImports.set(returnPackageName, importData);
+        }
 
         const rpcFn: RPCFunction = {
           name: rpcTokens[1],
@@ -228,14 +325,29 @@ function ParseProtoLine(line: string) {
             type: returnObjName,
           },
         };
-
-        insertRpcFunction(rpcFn);
+        services[services.length - 1].rpcFunctions.push(rpcFn);
       }
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "}":
       nestedLevel -= 1;
       lastMessageType = undefined;
-      return;
+      return {
+        imports: localImports,
+        messages,
+        services,
+        syntax,
+        package_name,
+        nestedLevel,
+        lastMessageType,
+      };
     case "repeated":
       isRepeated = true;
       break;
@@ -248,7 +360,15 @@ function ParseProtoLine(line: string) {
 
   //skip if Message header is not the last element of Messages
   if (!("type" in lastMessage)) {
-    return;
+    return {
+      imports: localImports,
+      messages,
+      services,
+      syntax,
+      package_name,
+      nestedLevel,
+      lastMessageType,
+    };
   }
 
   const parentMessage = getLastMessageHeader(nestedLevel, lastMessage);
@@ -257,6 +377,13 @@ function ParseProtoLine(line: string) {
   if (parentMessage.type === "Message") {
     const datatype = isRepeated || isOptional ? tokens[1] : tokens[0];
     const [dataTypePackageName, dataTypeObj] = getPackageNameAndObjName(datatype);
+
+    const datatypeImport = localImports.get(dataTypePackageName ?? "");
+    if (datatypeImport && dataTypePackageName) {
+      const importData = updateImportObjsProperty(datatypeImport, dataTypeObj);
+      localImports.set(dataTypePackageName, importData);
+    }
+
     message = {
       datatype: {
         packageName: dataTypePackageName,
@@ -275,6 +402,15 @@ function ParseProtoLine(line: string) {
   }
 
   parentMessage.body.push(message);
+  return {
+    imports: localImports,
+    messages,
+    services,
+    syntax,
+    package_name,
+    nestedLevel,
+    lastMessageType,
+  };
 }
 
 function getLastMessageHeader(nestedCount: number, lastMessage: MessageHeader): MessageHeader {
@@ -286,31 +422,23 @@ function getLastMessageHeader(nestedCount: number, lastMessage: MessageHeader): 
   }
 }
 
-function insertMessage(nestedCount: number, message: AllMessage, insertToNode: AllMessage[]) {
+function getMessageBodyToInsert(nestedCount: number, bodyNode: AllMessage[]): AllMessage[] {
   /**
    * Since we are tacking nested count the possibility of not having insertToNode of type AllMessage[] is 0
    */
 
   if (nestedCount > 0) {
-    const lastElement = insertToNode[insertToNode.length - 1] as MessageHeader;
-    insertMessage(nestedCount - 1, message, lastElement.body);
-    return;
+    const lastElement = bodyNode[bodyNode.length - 1] as MessageHeader;
+    return getMessageBodyToInsert(nestedCount - 1, lastElement.body);
   }
 
-  insertToNode.push(message);
+  return bodyNode;
 }
 
-function insertRpcFunction(rpcFn: RPCFunction | Option) {
-  services[services.length - 1].rpcFunctions.push(rpcFn);
-}
-
-function insertImport(package_name: string, obj: string) {
-  const import_data = imports.get(package_name);
-  if (import_data) {
-    const set_data = new Set(import_data.objs);
-    set_data.add(obj);
-    import_data.objs = Array.from(set_data);
-  }
+function insertAndGetUniqueStrings(objs: string[], obj_name: string): string[] {
+  const set_data = new Set(objs);
+  set_data.add(obj_name);
+  return Array.from(set_data);
 }
 
 function getPackageNameAndObjName(messageType: string): [string | undefined, string] {
@@ -320,9 +448,14 @@ function getPackageNameAndObjName(messageType: string): [string | undefined, str
   const packageName = messageTypeToken.length > 1 ? messageTypeToken.slice(0, -1).join(".") : undefined;
   const objName = messageTypeToken[messageTypeToken.length - 1];
 
-  insertImport(packageName ?? "", objName);
-
   return [packageName, objName];
+}
+
+function updateImportObjsProperty(import_data: Import, obj_name: string): Import {
+  const localImport = deepCopyObject(import_data);
+  const newObjs = insertAndGetUniqueStrings(localImport.objs, obj_name);
+  localImport.objs = newObjs;
+  return localImport;
 }
 
 function cleanText(text: string) {
@@ -332,7 +465,7 @@ function cleanText(text: string) {
 /**
  * For debugging
  */
-function _printGlobalVars() {
+function _printGlobalVars(imports: any, syntax: any, package_name: any, messages: any, services: any) {
   console.log(imports);
   console.log(syntax);
   console.log(package_name);
@@ -341,9 +474,24 @@ function _printGlobalVars() {
 }
 
 export async function parseProto(protoFile: string): Promise<ProtoJson> {
+  let imports: Map<string, Import> = new Map();
+  let syntax: Syntax = "";
+  let package_name: Package = "";
+  let messages: (MessageHeader | Option)[] = [];
+  let services: Service[] = [];
+  let nestedLevel = 0;
+  let lastMessageType: LastMessageType | undefined;
+
   const lines = ParseProtoFile(protoFile);
   for (const line of lines) {
-    ParseProtoLine(line);
+    const parsedData = ParseProtoLine(line, imports, messages, services, nestedLevel, lastMessageType);
+    imports = parsedData.imports;
+    syntax ||= parsedData.syntax;
+    package_name ||= parsedData.package_name;
+    messages = parsedData.messages;
+    services = parsedData.services;
+    nestedLevel = parsedData.nestedLevel;
+    lastMessageType = parsedData.lastMessageType;
   }
 
   const returnData = {
@@ -357,17 +505,6 @@ export async function parseProto(protoFile: string): Promise<ProtoJson> {
 }
 
 export async function parseProtoToJson(protoFile: string): Promise<string> {
-  const lines = ParseProtoFile(protoFile);
-  for (const line of lines) {
-    ParseProtoLine(line);
-  }
-
-  const returnData = {
-    syntax,
-    package: package_name,
-    imports: Array.from(imports.values()),
-    messages: messages,
-    services: services,
-  };
+  const returnData = await parseProto(protoFile);
   return JSON.stringify(returnData);
 }

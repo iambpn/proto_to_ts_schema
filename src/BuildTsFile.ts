@@ -2,8 +2,8 @@ import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Servic
 
 export function buildTsFile(proto: ProtoJson) {
   let tsFile = "";
-  const LocalMessages: Record<string, string> = {};
-  const imports: Import[] = proto.imports ?? [];
+  let LocalMessages: Record<string, string> = {};
+  let imports: Import[] = proto.imports ?? [];
 
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
@@ -14,9 +14,10 @@ export function buildTsFile(proto: ProtoJson) {
 
   if (proto.messages && proto.messages.length) {
     for (const message of proto.messages) {
-      const [content, newImports] = buildProtoMessages(message, LocalMessages, imports);
+      const [content, newImports, newLocalMessages] = buildProtoMessages(message, LocalMessages, imports);
       tsFile += content;
-      imports.push(...newImports);
+      imports = newImports;
+      LocalMessages = newLocalMessages;
     }
   }
 
@@ -27,6 +28,10 @@ export function buildTsFile(proto: ProtoJson) {
   }
 
   return tsFile;
+}
+
+function deepCopyObject<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
 }
 
 function buildProtoServices(service: Service, imports: Import[]): string {
@@ -80,16 +85,18 @@ function buildRpcFunctions(rpcFunction: RPCFunction | Option, imports: Import[])
  * @param localMessages
  * @param imports
  * @param nestedTo
- * @returns [content, MessageName]
+ * @returns [content, MessageName, localMessages]
  */
-function buildProtoMessages(message: MessageHeader | Option, localMessages: Record<string, string>, imports: Import[], nestedTo?: string): [string, Import[]] {
+function buildProtoMessages(message: MessageHeader | Option, localMessages: Record<string, string>, imports: Import[], nestedTo?: string): [string, Import[], Record<string, string>] {
   let file = "";
   let nestedContent = "";
-  let newImports: Import[] = [];
+
+  let newImports: Import[] = deepCopyObject(imports);
+  let newLocalMessages = deepCopyObject(localMessages);
 
   if ("isOption" in message) {
     // Skip Options: Do Nothing
-    return [file, newImports];
+    return [file, newImports, newLocalMessages];
   }
 
   const newMessageName = `${nestedTo ? `${nestedTo}__` : ""}${message.name}`;
@@ -98,31 +105,31 @@ function buildProtoMessages(message: MessageHeader | Option, localMessages: Reco
     for (let body of message.body) {
       // if MessageHeader or Option
       if ("type" in body || "isOption" in body) {
-        const [newContent, returnImports] = buildProtoMessages(body, localMessages, imports, newMessageName);
+        const [newContent, returnImports] = buildProtoMessages(body, localMessages, newImports, newMessageName);
         nestedContent += newContent;
-        newImports.push(...returnImports);
+        newImports = returnImports;
       } else {
         // Only Message body will be here
-        file += getMessageBody(message, body as MessageBody, localMessages, imports, nestedTo);
+        file += getMessageBody(message, body as MessageBody, localMessages, newImports, nestedTo);
       }
     }
-    file += `}\r\n`;
   } else {
     // Else: Enum
     file += `enum ${newMessageName} {\r\n`;
     for (const body of message.body) {
       if ("isOption" in body) {
-        const [newContent, returnImports] = buildProtoMessages(body, localMessages, imports, newMessageName);
+        const [newContent, returnImports] = buildProtoMessages(body, localMessages, newImports, newMessageName);
         nestedContent += newContent;
-        newImports.push(...returnImports);
+        newImports = returnImports;
       } else {
         // Only Enum body will be here
         file += getEnumBody(body as EnumBody);
       }
     }
-    file += `}\r\n`;
   }
-  return [nestedContent + file, newImports];
+  file += `}\r\n`;
+  newLocalMessages[newMessageName] = newMessageName;
+  return [nestedContent + file, newImports, newLocalMessages];
 }
 
 function getMessageBody(message: MessageHeader, body: MessageBody, localMessages: Record<string, string>, imports: Import[], nestedTo?: string): string {
