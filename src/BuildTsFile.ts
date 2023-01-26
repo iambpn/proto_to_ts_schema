@@ -1,11 +1,10 @@
 import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParser";
 
-let tsFile = "";
-let imports: Import[] = [];
-const LocalMessages: Record<string, string> = {};
-
 export function buildTsFile(proto: ProtoJson) {
-  imports = proto.imports ?? [];
+  let tsFile = "";
+  const LocalMessages: Record<string, string> = {};
+  const imports: Import[] = proto.imports ?? [];
+
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
       tsFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
@@ -15,30 +14,32 @@ export function buildTsFile(proto: ProtoJson) {
 
   if (proto.messages && proto.messages.length) {
     for (const message of proto.messages) {
-      tsFile += buildProtoMessages(message);
+      const [content, newImports] = buildProtoMessages(message, LocalMessages, imports);
+      tsFile += content;
+      imports.push(...newImports);
     }
   }
 
   if (proto.services && proto.services.length) {
     for (const service of proto.services) {
-      tsFile += buildProtoServices(service);
+      tsFile += buildProtoServices(service, imports);
     }
   }
 
   return tsFile;
 }
 
-function buildProtoServices(service: Service) {
+function buildProtoServices(service: Service, imports: Import[]): string {
   let file = `export interface ${service.name} {\r\n`;
   for (const rpcFunction of service.rpcFunctions) {
-    file += buildRpcFunctions(rpcFunction);
+    file += buildRpcFunctions(rpcFunction, imports);
   }
   file += "}\r\n";
 
   return file;
 }
 
-function buildRpcFunctions(rpcFunction: RPCFunction | Option) {
+function buildRpcFunctions(rpcFunction: RPCFunction | Option, imports: Import[]): string {
   if ("isOption" in rpcFunction) {
     // Skip Options: Do Nothing
     return "";
@@ -73,54 +74,65 @@ function buildRpcFunctions(rpcFunction: RPCFunction | Option) {
   return `  ${name}(data:${args}):${returns};\r\n`;
 }
 
-function buildProtoMessages(message: MessageHeader | Option, nestedTo?: string): string {
+/**
+ *
+ * @param message
+ * @param localMessages
+ * @param imports
+ * @param nestedTo
+ * @returns [content, MessageName]
+ */
+function buildProtoMessages(message: MessageHeader | Option, localMessages: Record<string, string>, imports: Import[], nestedTo?: string): [string, Import[]] {
   let file = "";
   let nestedContent = "";
+  let newImports: Import[] = [];
 
   if ("isOption" in message) {
     // Skip Options: Do Nothing
-    return "";
+    return [file, newImports];
   }
 
-  message.name = `${nestedTo ? `${nestedTo}__` : ""}${message.name}`;
+  const newMessageName = `${nestedTo ? `${nestedTo}__` : ""}${message.name}`;
   if (message.type === "Message") {
-    file += `export interface ${message.name} {\r\n`;
+    file += `export interface ${newMessageName} {\r\n`;
     for (let body of message.body) {
       // if MessageHeader or Option
       if ("type" in body || "isOption" in body) {
-        nestedContent += buildProtoMessages(body, message.name);
+        const [newContent, returnImports] = buildProtoMessages(body, localMessages, imports, newMessageName);
+        nestedContent += newContent;
+        newImports.push(...returnImports);
       } else {
         // Only Message body will be here
-        file += getMessageBody(message, body as MessageBody, nestedTo);
+        file += getMessageBody(message, body as MessageBody, localMessages, imports, nestedTo);
       }
     }
     file += `}\r\n`;
-    LocalMessages[message.name] = message.name;
   } else {
     // Else: Enum
-    file += `enum ${message.name} {\r\n`;
+    file += `enum ${newMessageName} {\r\n`;
     for (const body of message.body) {
       if ("isOption" in body) {
-        nestedContent += buildProtoMessages(body, message.name);
+        const [newContent, returnImports] = buildProtoMessages(body, localMessages, imports, newMessageName);
+        nestedContent += newContent;
+        newImports.push(...returnImports);
       } else {
         // Only Enum body will be here
         file += getEnumBody(body as EnumBody);
       }
     }
     file += `}\r\n`;
-    LocalMessages[message.name] = message.name;
   }
-  return nestedContent + file;
+  return [nestedContent + file, newImports];
 }
 
-function getMessageBody(message: MessageHeader, body: MessageBody, nestedTo?: string): string {
+function getMessageBody(message: MessageHeader, body: MessageBody, localMessages: Record<string, string>, imports: Import[], nestedTo?: string): string {
   if (!body.datatype.packageName) {
     const [typeName, isTsType] = convertProtoTypeToTs(body.datatype.type);
 
     if (isTsType) {
       return `  ${body.name}: ${typeName};\r\n`;
     } else {
-      const localMessage = LocalMessages[typeName];
+      const localMessage = localMessages[typeName];
       const newTypeName = localMessage ?? (nestedTo ? `${nestedTo}__${typeName}` : `${message.name}__${typeName}`);
       return `  ${body.name}: ${newTypeName};\r\n`;
     }
