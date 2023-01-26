@@ -141,21 +141,29 @@ function getMessageBody(message: MessageHeader, body: MessageBody, localMessages
     } else {
       const localMessage = localMessages[typeName];
       const newTypeName = localMessage ?? (nestedTo ? `${nestedTo}__${typeName}` : `${message.name}__${typeName}`);
-      return `  ${body.name}: ${newTypeName};\r\n`;
+      return `  ${body.name}${isOptional(body.optional)}: ${newTypeName}${isRepeated(body.repeated)};\r\n`;
     }
   } else {
     const packageName = body.datatype.packageName;
     const isFound = imports?.find((import_data) => import_data.packageName === packageName);
     if (isFound) {
-      return `  ${body.name}: ${body.datatype.type},\r\n`;
+      return `  ${body.name}${isOptional(body.optional)}: ${body.datatype.type}${isRepeated(body.repeated)};\r\n`;
     } else {
-      return `  ${body.name}: ${message.name}__${body.datatype.packageName.replace(".", "__")}__${body.datatype.type},\r\n`;
+      return `  ${body.name}${isOptional(body.optional)}: ${message.name}__${body.datatype.packageName.replace(".", "__")}__${body.datatype.type}${isRepeated(body.repeated)};\r\n`;
     }
   }
 }
 
 function getEnumBody(body: EnumBody) {
   return `  ${body.name},\r\n`;
+}
+
+function isRepeated(repeated: boolean) {
+  return repeated ? "[]" : "";
+}
+
+function isOptional(optional: boolean) {
+  return optional ? "?" : "";
 }
 
 const Types: Record<string, string> = {
