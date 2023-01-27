@@ -76,9 +76,10 @@ async function configureArgs(options: Options): Promise<ConfiguredOption> {
 
   if (!options.proto_files) {
     const files = await fs.readdir(localOptions.proto_path);
-    localOptions.proto_files = files.filter((file) => path.extname(file) === ".proto").map((file) => path.join(localOptions.proto_path, file));
+    localOptions.proto_files = files.filter((file) => path.extname(file) === ".proto");
   }
 
+  localOptions.proto_files = localOptions.proto_files.map((file) => path.join(localOptions.proto_path, file));
   return localOptions;
 }
 
@@ -129,6 +130,7 @@ async function isFileExist(file_path: string): Promise<boolean> {
 
   if (options.help) {
     showHelp();
+    return;
   }
 
   const configuredOptions = await configureArgs(options);
@@ -145,6 +147,7 @@ async function isFileExist(file_path: string): Promise<boolean> {
       console.log(`Path "${file}" is not a valid proto path.`);
       return;
     }
+    console.log(file);
     await ConvertProtoToTs(file, path.join(configuredOptions.out, fileName.split(".")[0] + ".ts"));
   });
   if (parsePromise) {
