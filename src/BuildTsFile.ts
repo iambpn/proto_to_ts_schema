@@ -80,7 +80,7 @@ function buildRpcFunctions(rpcFunction: RPCFunction | Option, imports: Import[])
 
   let returns = "";
   if (!rpcFunction.returns.packageName) {
-    returns = `${rpcFunction.returns.packageName}`;
+    returns = `${rpcFunction.returns.type}`;
   } else {
     const packageName = rpcFunction.returns.packageName;
     const isFound = imports?.find((import_data) => import_data.packageName === packageName);
