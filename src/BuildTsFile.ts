@@ -1,4 +1,18 @@
+import * as fs from "fs/promises";
+import { parseProto } from "./ProtoParser";
 import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParser";
+
+export async function ConvertProtoToTs(protoPath: string, outPath: string, isDebug = false) {
+  const protoFile = await fs.readFile(protoPath, { encoding: "utf-8" });
+  const parsedData = await parseProto(protoFile);
+
+  if (isDebug) {
+    await fs.writeFile(outPath + ".debug.json", JSON.stringify(parsedData), { encoding: "utf-8" });
+  }
+
+  const zodFile = buildTsFile(parsedData);
+  await fs.writeFile(outPath, zodFile, { encoding: "utf-8" });
+}
 
 export function buildTsFile(proto: ProtoJson) {
   let tsFile = "";

@@ -159,6 +159,7 @@ function ParseProtoLine(
             localImports.set(packageName, import_data);
           }
         }
+        // could be added here more to interpret comments.
       }
       return {
         imports: localImports,
@@ -394,7 +395,7 @@ function ParseProtoLine(
       repeated: isRepeated,
     } as MessageBody;
   } else {
-    // Option will be caught in switch case so this if enum for sure.
+    // Option will be caught in switch case so this must be enum.
     message = {
       name: tokens[0],
       value: +tokens[2],
