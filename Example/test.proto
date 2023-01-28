@@ -50,3 +50,13 @@ service tutorialService {
   option service_option = "service_option";
   rpc setdata(AddressBook) returns (commons.common);
 }
+
+message UpdateCallLogsRequest {
+  message UpateFlags {
+    repeated string add = 1;
+    repeated string delete = 2;
+    repeated string set = 3;
+  }
+  string call_link_id = 1;
+  UpateFlags flags = 2;
+}
