@@ -46,7 +46,7 @@ message AddressBook {
 }
 
 service tutorialService {
-  rpc getData(AddressBook) returns (commons.common) {};
+  rpc getData(AddressBook) returns (commons.common){};
   option service_option = "service_option";
   rpc setdata(AddressBook) returns (commons.common);
 }

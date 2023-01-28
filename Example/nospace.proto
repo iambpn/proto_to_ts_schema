@@ -1,12 +1,5 @@
-syntax="proto3";
-package tutorial;
-
-import weak "google/protobuf/timestamp.proto"; // package: google.protobuf
-import public "commons.proto";
-
-option go_package="github.com/protocolbuffers/protobuf/examples/go/tutorialpb";
-
-message Person{string name=1[test=false];int32 id=2;
-//UniqueIDnumberforthisperson.
-string email=3;string password=8;enum PhoneType{MOBILE=0;HOME=1;WORK=2;}message PhoneNumber{string number=1;PhoneType type=2;}repeated PhoneNumber phones=4;google.protobuf.Timestamp last_updated=5;}// Our address book file is just one of these.
-message AddressBook{repeated Person people=1;}service tutorialService{rpc getData(AddressBook)returns(commons.common);}
+syntax="proto3";package tutorial;import "google/protobuf/timestamp.proto";// package: google.protobuf
+import "commons.proto";option go_package = "github.com/protocolbuffers/protobuf/examples/go/tutorialpb";message Person{string name = 1[test = false];int32 id = 2;//Unique ID number for this person.
+string email = 3;string password = 8;option message_option = "option_Message";enum PhoneType {
+option enum_option = "option_enum";MOBILE = 0;HOME = 1;WORK = 2;}message PhoneNumber { string number = 1;PhoneType type = 2;}repeated PhoneNumber phones = 4;google.protobuf.Timestamp last_updated = 5;}// Our address book file is just one of these.
+message AddressBook {message AddressBook1 { message AddressBook2 {message AddressBook3 {message PhoneNumber {}} }}repeated Person people = 1;AddressBook1.AddressBook2.AddressBook3 address = 2;}service tutorialService {rpc getData(AddressBook)returns(commons.common) {};option service_option = "service_option";rpc setdata(AddressBook) returns (commons.common);}message UpdateCallLogsRequest {message UpateFlags { repeated string add = 1;repeated string delete = 2;repeated string set = 3;}string call_link_id = 1;UpateFlags flags = 2;}
