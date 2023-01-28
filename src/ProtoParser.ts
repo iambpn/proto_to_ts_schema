@@ -100,18 +100,18 @@ function ParseProtoFile(file: string): string[] {
     .trim()
     // remove multi line comment
     .replace(/\/\*(.|\n|\r)+\*\//gm, "")
-    // remove single one line comment (wont remove single line comment after code.)
+    // remove starting single line comment (wont remove single line comment after code.)
     .replace(/^\/\/.+/, "")
-    // remove extra {} in rpc function
-    .replace(/\{\}/gm, "")
-    .replace(/{/gm, " {\n ")
-    .replace(/}/gm, " }\n ")
-    .replace(/;/gm, " ;\n ")
-    .replace(/=/gm, " = ")
-    .replace(/\/\//gm, " // ")
-    .replace(/\)returns\(/gm, ") returns (")
-    .split(/\n|\r|;/)
-    .map((x) => x.trim())
+    // remove extra {} in rpc function (regex used: Positive lookbehind)
+    .replace(/(?<=\) *){}/gm, "")
+    // adding '\r;\n' at the end of remaining comment (regex used: Positive lookbehind)
+    .replace(/(?<=[\/]{2}.*)(\n|\r)/gm, "\r;\n")
+    .replace(/\}/gm, ";};")
+    .replace(/=/gm, " = ") // padding
+    .replace(/\/\//gm, " // ") // padding
+    .replace(/\)returns\(/gm, ") returns (") // padding
+    .split(/{|;/)
+    .map((x) => x.replace(/\n|\r/gm, " ").trim())
     .filter(Boolean);
 
   return lines;
@@ -486,14 +486,19 @@ export async function parseProto(protoFile: string): Promise<ProtoJson> {
 
   const lines = ParseProtoFile(protoFile);
   for (const line of lines) {
-    const parsedData = ParseProtoLine(line, imports, messages, services, nestedLevel, lastMessageType);
-    imports = parsedData.imports;
-    syntax ||= parsedData.syntax;
-    package_name ||= parsedData.package_name;
-    messages = parsedData.messages;
-    services = parsedData.services;
-    nestedLevel = parsedData.nestedLevel;
-    lastMessageType = parsedData.lastMessageType;
+    try {
+      const parsedData = ParseProtoLine(line, imports, messages, services, nestedLevel, lastMessageType);
+      imports = parsedData.imports;
+      syntax ||= parsedData.syntax;
+      package_name ||= parsedData.package_name;
+      messages = parsedData.messages;
+      services = parsedData.services;
+      nestedLevel = parsedData.nestedLevel;
+      lastMessageType = parsedData.lastMessageType;
+    } catch (error) {
+      console.log("Error on line:", line);
+      throw error;
+    }
   }
 
   const returnData = {

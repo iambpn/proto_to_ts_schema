@@ -3,15 +3,20 @@ import { parseProto } from "./ProtoParser";
 import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParser";
 
 export async function ConvertProtoToTs(protoPath: string, outPath: string, isDebug = false) {
-  const protoFile = await fs.readFile(protoPath, { encoding: "utf-8" });
-  const parsedData = await parseProto(protoFile);
+  try {
+    const protoFile = await fs.readFile(protoPath, { encoding: "utf-8" });
+    const parsedData = await parseProto(protoFile);
 
-  if (isDebug) {
-    await fs.writeFile(outPath + ".debug.json", JSON.stringify(parsedData), { encoding: "utf-8" });
+    if (isDebug) {
+      await fs.writeFile(outPath + ".debug.json", JSON.stringify(parsedData), { encoding: "utf-8" });
+    }
+
+    const zodFile = buildTsFile(parsedData);
+    await fs.writeFile(outPath, zodFile, { encoding: "utf-8" });
+  } catch (error) {
+    console.log("Error while parsing file: ", protoPath);
+    throw error;
   }
-
-  const zodFile = buildTsFile(parsedData);
-  await fs.writeFile(outPath, zodFile, { encoding: "utf-8" });
 }
 
 export function buildTsFile(proto: ProtoJson) {
@@ -21,23 +26,38 @@ export function buildTsFile(proto: ProtoJson) {
 
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
-      tsFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
+      try {
+        tsFile += `import { ${importData.objs.join(", ")} } from "${importData.pathToPackage}/${importData.packageName}";\r\n`;
+      } catch (error) {
+        console.log("Error on import: ", importData);
+        throw error;
+      }
     }
   }
   tsFile += "\r\n";
 
   if (proto.messages && proto.messages.length) {
     for (const message of proto.messages) {
-      const [content, newImports, newLocalMessages] = buildProtoMessages(message, LocalMessages, imports);
-      tsFile += content;
-      imports = newImports;
-      LocalMessages = newLocalMessages;
+      try {
+        const [content, newImports, newLocalMessages] = buildProtoMessages(message, LocalMessages, imports);
+        tsFile += content;
+        imports = newImports;
+        LocalMessages = newLocalMessages;
+      } catch (error) {
+        console.log("Error on message: ", message);
+        throw error;
+      }
     }
   }
 
   if (proto.services && proto.services.length) {
     for (const service of proto.services) {
-      tsFile += buildProtoServices(service, imports);
+      try {
+        tsFile += buildProtoServices(service, imports);
+      } catch (error) {
+        console.log("Error on service: ", service);
+        throw error;
+      }
     }
   }
 
@@ -51,7 +71,12 @@ function deepCopyObject<T>(obj: T): T {
 function buildProtoServices(service: Service, imports: Import[]): string {
   let file = `export interface ${service.name} {\r\n`;
   for (const rpcFunction of service.rpcFunctions) {
-    file += buildRpcFunctions(rpcFunction, imports);
+    try {
+      file += buildRpcFunctions(rpcFunction, imports);
+    } catch (error) {
+      console.log("Error on rpc: ", rpcFunction);
+      throw error;
+    }
   }
   file += "}\r\n";
 
