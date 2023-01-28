@@ -286,6 +286,7 @@ function ParseProtoLine(
           name: tokens[1],
           rpcFunctions: [],
         });
+        nestedLevel += 1;
         lastMessageType = "Service";
       }
       return {
