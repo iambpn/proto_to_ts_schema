@@ -1,4 +1,5 @@
 .vscode
+p2t.*
 out.**
 rough/
 # Logs

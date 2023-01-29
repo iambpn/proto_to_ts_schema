@@ -2,14 +2,8 @@ import * as fs from "fs/promises";
 import cli from "command-line-args";
 import path from "path";
 import { ConvertProtoToTs } from "./BuildTsFile";
-
-type Options = {
-  proto_files?: string[];
-  proto_path?: string;
-  out?: string;
-  config?: string;
-  help?: boolean;
-};
+import { P2tType } from "./P2tType";
+import { ConfiguredOption, OptionKeys, Options } from "./CliTypes";
 
 function getCliOptions(): Options {
   try {
@@ -47,8 +41,7 @@ function getCliOptions(): Options {
   }
 }
 
-type ConfiguredOption = Required<Omit<Options, "config">> & Pick<Options, "config">;
-async function configureArgs(options: Options): Promise<ConfiguredOption> {
+async function getConfigureArgs(options: Options): Promise<ConfiguredOption> {
   const localOptions = JSON.parse(JSON.stringify(options)) as ConfiguredOption;
   localOptions.proto_path = localOptions.proto_path ?? process.cwd();
   localOptions.out = localOptions.out ?? process.cwd();
@@ -68,11 +61,19 @@ async function configureArgs(options: Options): Promise<ConfiguredOption> {
     localOptions.proto_files = files.filter((file) => path.extname(file) === ".proto");
   }
 
+  if (!options.config) {
+    const defaultConfigPath = path.join(process.cwd(), "p2t.js");
+    if (await isFileExist(defaultConfigPath)) {
+      localOptions.config = defaultConfigPath;
+    }
+  } else if (await isFileExist(options.config)) {
+    localOptions.config = options.config;
+  }
+
   localOptions.proto_files = localOptions.proto_files.map((file) => path.join(localOptions.proto_path, file));
   return localOptions;
 }
 
-type OptionKeys = keyof Options;
 function showHelp() {
   const applicationName = "Proto to TS";
 
@@ -105,6 +106,20 @@ function showHelp() {
   console.log(`${applicationName}${generateDocs}`);
 }
 
+export async function getConfigurationArgs(): Promise<ConfiguredOption> {
+  const options = getCliOptions();
+  return getConfigureArgs(options);
+}
+
+export async function getP2tConfig(): Promise<P2tType> {
+  const options = await getConfigurationArgs();
+  if (options.config) {
+    const configs = await import(options.config);
+    return configs.default;
+  }
+  return {};
+}
+
 async function isFileExist(file_path: string): Promise<boolean> {
   try {
     await fs.stat(file_path);
@@ -122,7 +137,7 @@ export async function initializeCli() {
     return;
   }
 
-  const configuredOptions = await configureArgs(options);
+  const configuredOptions = await getConfigureArgs(options);
 
   const parsePromise = configuredOptions.proto_files?.map(async (file) => {
     const isExist = await isFileExist(file);
