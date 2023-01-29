@@ -1,9 +1,13 @@
 import * as fs from "fs/promises";
+import { getP2tConfig } from "./Cli";
+import { P2tType } from "./P2tType";
 import { parseProto } from "./ProtoParser";
-import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParser";
+import { ProtoJson, MessageHeader, Option, MessageBody, Import, EnumBody, Service, RPCFunction } from "./ProtoParserTypes";
 
+let p2tConfigs: P2tType;
 export async function ConvertProtoToTs(protoPath: string, outPath: string, isDebug = false) {
   try {
+    p2tConfigs ||= await getP2tConfig();
     const protoFile = await fs.readFile(protoPath, { encoding: "utf-8" });
     const parsedData = await parseProto(protoFile);
 
@@ -23,6 +27,10 @@ export function buildTsFile(proto: ProtoJson) {
   let tsFile = "";
   let LocalMessages: Record<string, string> = {};
   let imports: Import[] = proto.imports ?? [];
+
+  for (const import_path of p2tConfigs.imports ?? []) {
+    tsFile += `${import_path.split(";").join("")};\r\n`;
+  }
 
   if (proto.imports && proto.imports.length) {
     for (const importData of proto.imports) {
@@ -115,7 +123,8 @@ function buildRpcFunctions(rpcFunction: RPCFunction | Option, imports: Import[])
       returns = `${rpcFunction.returns.packageName.replace(".", "__")}__${rpcFunction.returns.type}`;
     }
   }
-  return `  ${name}(data:${args}):${returns};\r\n`;
+
+  return `  ${name}(data:${args}):${p2tConfigs.rpcFuncReturn ? p2tConfigs.rpcFuncReturn(returns) : returns};\r\n`;
 }
 
 /**
