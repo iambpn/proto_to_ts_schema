@@ -78,7 +78,7 @@ function showHelp() {
   const applicationName = "Proto to TS";
 
   const optionsDescription: { [x in OptionKeys]: string } = {
-    config: "Path to the config file which must be in js format (notSupported). (default: CWD/p2t.js)",
+    config: "Path to the config file which must be in js/ts format. (default: CWD/p2t.js)",
     help: "To show help docs.",
     out: "Path to output folder. (default: CWD)",
     proto_files: "List of proto files to compile to TS. (default: All proto files inside of 'proto_path' or CWD)",
