@@ -77,7 +77,7 @@ function showHelp() {
   const applicationName = "Proto to TS";
 
   const optionsDescription: { [x in OptionKeys]: string } = {
-    config: "Path to the config file which must be in json format (notSupported). (default: CWD/p2t.json)",
+    config: "Path to the config file which must be in js format (notSupported). (default: CWD/p2t.js)",
     help: "To show help docs.",
     out: "Path to output folder. (default: CWD)",
     proto_files: "List of proto files to compile to TS. (default: All proto files inside of 'proto_path' or CWD)",
@@ -89,7 +89,7 @@ function showHelp() {
     help: "--help [-h]",
     out: "--out <path> [-o <path>]",
     proto_files: "--proto_files <filename.proto> <filename2.proto> [-f <files.prot>]",
-    proto_path: "-p <path> [-p <path>]",
+    proto_path: "--proto_path <path> [-p <path>]",
   };
 
   const generateDocs = Object.keys(optionsDescription)
