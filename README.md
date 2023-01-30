@@ -1,10 +1,10 @@
-# proto_to_ts
+# proto_to_ts_schema
 
 proto to ts schema compiler.
 
 ## Usage
 
-Proto to TS
+Proto to TS Schema
 
 `config`: Path to the config file which must be in js/ts format. (default: CWD/p2t.js) usage: --config [-c]
 
