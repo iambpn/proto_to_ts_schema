@@ -75,7 +75,7 @@ async function getConfigureArgs(options: Options): Promise<ConfiguredOption> {
 }
 
 function showHelp() {
-  const applicationName = "Proto to TS";
+  const applicationName = "Proto to TS Schema";
 
   const optionsDescription: { [x in OptionKeys]: string } = {
     config: "Path to the config file which must be in js/ts format. (default: CWD/p2t.js)",

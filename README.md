@@ -1,10 +1,10 @@
-# proto_to_ts
+# proto_to_ts_schema
 
-proto to ts schema compiler.
+proto to ts schema compiler/transpiler.
 
 ## Usage
 
-Proto to TS
+Proto to TS Schema
 
 `config`: Path to the config file which must be in js/ts format. (default: CWD/p2t.js) usage: --config [-c]
 
@@ -18,7 +18,7 @@ Proto to TS
 
 ## CLI Usage with `p2ti`
 
-install package globally: `npm i -g proto_to_ts`.
+install package globally: `npm i -g proto_ts_schema`.
 
 - To show help docs: `p2ti -h`
 
@@ -27,7 +27,7 @@ install package globally: `npm i -g proto_to_ts`.
 ```js
 module.exports = {
   rpcFuncReturn: undefined, // Function (type:string) =>string
-  imports: [], // additional imports to include in TS file. Options: Array<string> | undefined
+  imports: [], // Additional imports to include in TS file. Options: Array<string> | undefined
 };
 ```
 
