@@ -1,18 +1,32 @@
 {
   "name": "proto_to_ts",
   "version": "1.0.0",
-  "description": "(Beta) proto to ts schema compiler.",
+  "description": "proto to ts schema compiler/transpiler.",
   "main": "dist/index.js",
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc",
-    "dist": "tsc && node ."
+    "dist-run": "tsc && node .",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/iambpn/proto_to_ts.git"
   },
-  "keywords": [],
+  "keywords": [
+    "proto",
+    "protobuf",
+    "typescript",
+    "interface",
+    "proto-to-interface",
+    "proto-to-ts-interface",
+    "nest-proto-interface",
+    "typescript-interface",
+    "proto-definition",
+    "Protocol Buffers",
+    "proto-transpiler",
+    "proto-to-ts-transpiler"
+  ],
   "author": "Bipin Maharjan",
   "license": "ISC",
   "bugs": {
@@ -27,5 +41,16 @@
   },
   "dependencies": {
     "command-line-args": "^5.2.1"
-  }
+  },
+  "bin": {
+    "p2ti": "./bin/RunCli.js"
+  },
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "files": [
+    "./dist/**/*",
+    "./src/**/*",
+    "./bin/**/*"
+  ]
 }
