@@ -1,4 +1,6 @@
-out.json
+.vscode
+p2t.*
+out.**
 rough/
 # Logs
 logs
