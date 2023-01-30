@@ -16,6 +16,12 @@ Proto to TS
 
 `proto_path`: Path to Proto folder, (default: CWD) usage: --proto_path <path> [-p <path>]
 
+## CLI Usage with `p2ti`
+
+install package globally: `npm i -g proto_to_ts`.
+
+- To show help docs: `p2ti -h`
+
 ## Config Example
 
 ```js
@@ -30,3 +36,9 @@ module.exports = {
 (There are many caveats in this compiler still to be found but here are some known caveats)
 
 - Ordering of the `message` in proto matters. You need to declare proto message first then only you can use it else it will result in error.
+
+## Features
+
+- Support for Relative Imports
+- Support for config file
+- Built in CLI
