@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iambpn/proto_to_ts.git"
+    "url": "git+https://github.com/iambpn/proto_to_ts_schema.git"
   },
   "keywords": [
     "proto",
@@ -30,9 +30,9 @@
   "author": "Bipin Maharjan",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/iambpn/proto_to_ts/issues"
+    "url": "https://github.com/iambpn/proto_to_ts_schema/issues"
   },
-  "homepage": "https://github.com/iambpn/proto_to_ts#readme",
+  "homepage": "https://github.com/iambpn/proto_to_ts_schema#readme",
   "devDependencies": {
     "@types/command-line-args": "^5.2.0",
     "@types/node": "^18.11.18",
